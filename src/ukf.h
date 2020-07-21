@@ -95,6 +95,22 @@ class UKF {
 
   // Sigma point spreading parameter
   double lambda_;
+
+   // process covariance matrix
+  Eigen::MatrixXd Q_;
+
+  // measurement matrix
+  Eigen::MatrixXd H_;
+
+  // measurement covariance matrix
+  Eigen::MatrixXd R_;
+
+   // state transistion matrix
+  Eigen::MatrixXd F_;
+
+  Eigen::MatrixXd Xsig_pred;
+
+  long prevTime;
 };
 
 #endif  // UKF_H
