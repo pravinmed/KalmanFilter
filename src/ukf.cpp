@@ -25,10 +25,10 @@ UKF::UKF() {
   P_ = MatrixXd(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 30;
+  std_a_ = 0.75;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 30;
+  std_yawdd_ = 0.65;
   
   /**
    * DO NOT MODIFY measurement noise values below.
@@ -103,11 +103,11 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     x_ << 1,1,1,1,1;
     P_ = Eigen::MatrixXd(5,5);
   
-    P_ << 10, 0, 0, 0, 0,
-          0, 10, 0, 0, 0, 
-          0, 0 , 10, 0, 0,
-          0, 0,  0,  10, 0,
-          0, 0,  0,  0, 10;
+    P_ << 0.5, 0, 0, 0, 0,
+          0, 0.5, 0, 0, 0, 
+          0, 0 , 1, 0, 0,
+          0, 0,  0,  1, 0,
+          0, 0,  0,  0, 1;
     std::cout << "Kalman Filter Initialization " << std::endl;
 
     // set the state with the initial location and zero velocity
@@ -124,7 +124,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
         double rho = meas_package.raw_measurements_[0];
         double si =  meas_package.raw_measurements_[1];
         double rhodot = meas_package.raw_measurements_[2];
-        x_ << rho*cos(si), -1*rho*sin(si), 0,0,0;
+        x_ << rho*cos(si), rho*sin(si), 0,0,0;
         
     }
     prevTime = meas_package.timestamp_;
