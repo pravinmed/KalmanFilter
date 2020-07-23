@@ -60,6 +60,15 @@ UKF::UKF() {
             0, std_laspy_*std_laspy_ ;
 
   
+    x_ << 1,1,1,1,1;
+    P_ = Eigen::MatrixXd(5,5);
+  
+    P_ << 1, 0, 0, 0, 0,
+          0, 1, 0, 0, 0, 
+          0, 0 , 1, 0, 0,
+          0, 0,  0,  0.0225, 0,
+          0, 0,  0,  0, .0225;
+
   /**
    * End DO NOT MODIFY section for measurement noise values 
    */
@@ -70,20 +79,22 @@ UKF::UKF() {
    */
     // Radar measurement noise standard deviation radius change in m/s
   
+   // Augmented state dimension
+   n_aug_ = 7;
+
+
   // Weights of sigma points
-   weights_ = VectorXd(5);
+   weights_ = VectorXd(2*n_aug_+1);
 
   // State dimension
  
-  // Augmented state dimension
-  n_aug_ = 7;
-
+ 
   // Sigma point spreading parameter
-  lambda_ = 0.1f;
+  lambda_ = 3 - n_aug_;
 
   Xsig_pred = MatrixXd(n_x_, 2 * n_aug_ + 1);
 
-  prevTime = -1;
+  time_us_ = 0.0;
 
   std::cout << " C'tor initialize" << std::endl;
 
@@ -98,43 +109,34 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
    * TODO: Complete this function! Make sure you switch between lidar and radar
    * measurements.
    */
+  if (meas_package.sensor_type_ == MeasurementPackage::LASER || 
+      meas_package.sensor_type_ == MeasurementPackage::RADAR
+  )
   if (!is_initialized_) {
 
-    x_ << 1,1,1,1,1;
-    P_ = Eigen::MatrixXd(5,5);
-  
-    P_ << 0.5, 0, 0, 0, 0,
-          0, 0.5, 0, 0, 0, 
-          0, 0 , 1, 0, 0,
-          0, 0,  0,  1, 0,
-          0, 0,  0,  0, 1;
-    std::cout << "Kalman Filter Initialization " << std::endl;
-
-    // set the state with the initial location and zero velocity
-   
     if (meas_package.sensor_type_ == meas_package.SensorType::LASER)
     {
-        x_ << meas_package.raw_measurements_[0], 
-                meas_package.raw_measurements_[1], 
+        x_ << meas_package.raw_measurements_(0), 
+                meas_package.raw_measurements_(1), 
                 0, 
                 0,
                 0;
 
     } else {
-        double rho = meas_package.raw_measurements_[0];
-        double si =  meas_package.raw_measurements_[1];
-        double rhodot = meas_package.raw_measurements_[2];
+        double rho = meas_package.raw_measurements_(0);
+        double si =  meas_package.raw_measurements_(1);
+        double rhodot = meas_package.raw_measurements_(2);
         x_ << rho*cos(si), rho*sin(si), 0,0,0;
         
     }
-    prevTime = meas_package.timestamp_;
+    time_us_ = meas_package.timestamp_;
     is_initialized_ = true;
     std::cout <<  " Initialized " <<std::endl;
     return;
  
   }
-  float dt = (meas_package.timestamp_ - prevTime)/1000000.0;
-  prevTime = meas_package.timestamp_;
+  float dt = (meas_package.timestamp_ - time_us_)/1000000.0;
+  time_us_ = meas_package.timestamp_;
   Prediction(dt);
   if (meas_package.sensor_type_ == meas_package.SensorType::LASER)
   {
@@ -279,20 +281,23 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
    * covariance, P_.
    * You can also calculate the lidar NIS, if desired.
    */
+  int n_z = 2;
+  Eigen::VectorXd z = Eigen::VectorXd(n_z);
+  z << meas_package.raw_measurements_(0), meas_package.raw_measurements_(1);
   std::cout << " Update Lidar " << std::endl;
   Eigen::VectorXd z_pred = H_ * x_;
-  Eigen::VectorXd y = meas_package.raw_measurements_ - z_pred;
+  Eigen::VectorXd y = z - z_pred;
   Eigen::MatrixXd Ht = H_.transpose();
   Eigen::MatrixXd S = H_ * P_ * Ht + R_;
   Eigen::MatrixXd Si = S.inverse();
   Eigen::MatrixXd PHt = P_ * Ht;
   Eigen::MatrixXd K = PHt * Si;
  
-  
-
   //new estimate
   x_ = x_ + (K * y);
   long x_size = x_.size();
+  while (x_(3)> M_PI) x_(3)-=2.*M_PI;
+  while (x_(3)<-M_PI) x_(3)+=2.*M_PI;
   Eigen::MatrixXd I = Eigen::MatrixXd::Identity(x_size, x_size);
   P_ = (I - K * H_) * P_;
 
@@ -361,7 +366,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   // mean predicted measurement
   z_pred.fill(0.0);
   for (int i=0; i < 2*n_aug_+1; ++i) {
-  
     z_pred = z_pred + weights(i) * Zsig.col(i);
   }
 
@@ -387,8 +391,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   S = S + R;
 
   
-
-
  Eigen::MatrixXd Tc = Eigen::MatrixXd(n_x_, n_z);
  for (int i = 0; i < 2 * n_aug_ + 1; ++i) {  // 2n+1 simga points
     // residual
@@ -420,6 +422,11 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   // update state mean and covariance matrix
   x_ = x_ + K * z_diff;
+
+  while (x_(3)> M_PI) x_(3)-=2.*M_PI;
+  while (x_(3)<-M_PI) x_(3)+=2.*M_PI;
+
+
   P_ = P_ - K*S*K.transpose();
 
   // print result
