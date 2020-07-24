@@ -330,9 +330,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     weights(i) = weight;
   }
 
-  
-
-
 // create matrix for sigma points in measurement space
   Eigen::MatrixXd Zsig = Eigen::MatrixXd(n_z, 2 * n_aug_ + 1);
 
